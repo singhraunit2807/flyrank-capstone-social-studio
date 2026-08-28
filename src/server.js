@@ -1,11 +1,10 @@
 import 'dotenv/config';
 import express from 'express';
 import { createCampaign, getCampaign, listCampaigns, updatePost } from './services/campaignService.js';
-import { DEFAULT_FAKE_ACCESS_TOKEN } from './config.js';
+import { DEFAULT_FAKE_ACCESS_TOKEN, WEBHOOK_SECRET, PORT } from './config.js';
 import { publishToFakePlatform, getFakePlatformPosts } from './services/fakePlatformClient.js';
 import { withRetry } from './retry.js';
 import { verifyWebhookSignature } from './webhook.js';
-import { WEBHOOK_SECRET, PORT } from './config.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -44,7 +43,8 @@ app.post('/api/campaigns/:id/publish', async (req, res, next) => {
           caption: post.caption,
           imageUrl: post.image.sourceImage,
           idempotencyKey: post.idempotencyKey,
-          accessToken
+          accessToken,
+          clientPostId: post.id
         }),
         { maxRetries: 3 }
       );
@@ -69,8 +69,13 @@ app.post('/webhook/social-delivery', (req, res) => {
   if (!verifyWebhookSignature(req.body, signature, WEBHOOK_SECRET)) {
     return res.status(400).json({ error: 'invalid webhook signature' });
   }
-  const { postId, externalId, status } = req.body;
-  const post = postId ? updatePost(postId, { status, externalId, deliveredAt: new Date().toISOString() }) : null;
+  const { postId, clientPostId, externalId, status } = req.body;
+  const internalPostId = clientPostId || postId;
+  const post = internalPostId ? updatePost(internalPostId, {
+    status,
+    externalId: externalId || postId || null,
+    deliveredAt: new Date().toISOString()
+  }) : null;
   if (!post) return res.status(404).json({ error: 'post not found' });
   return res.json({ ok: true, post });
 });
