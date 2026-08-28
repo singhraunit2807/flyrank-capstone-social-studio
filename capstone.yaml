@@ -1,8 +1,11 @@
-run: npm start
-seed: echo "Seed data will be added with the persistence layer"
-test: npm test
+run: docker compose up
+seed: npm run generate:images
+ test: npm test
 base_url: http://localhost:3000
 endpoints:
   - GET /health
   - POST /api/campaigns
   - GET /api/campaigns/:id
+  - POST /api/campaigns/:id/publish
+  - GET /api/fake-platform/posts
+  - POST /webhook/social-delivery
