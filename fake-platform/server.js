@@ -23,7 +23,7 @@ app.post('/oauth/token', (req, res) => {
   tokens.set(accessToken, { platform, code });
   res.json({ access_token: accessToken, token_type: 'Bearer', expires_in: 3600 });
 });
-app.post('/admin/rate-limit-once', (_req, res) => { rateLimitOnce = true; res.json({ enabled: true }); });
+app.post('/admin/rate-limit-once', (_req, res) => { rateLimitOnce = true; res.json({ enabled: true, retryAfterSeconds: 30 }); });
 app.post('/admin/fail-once', (_req, res) => { failOnce = true; res.json({ enabled: true }); });
 app.get('/admin/posts', (_req, res) => res.json([...posts.values()]));
 app.get('/posts', (_req, res) => res.json([...posts.values()]));
@@ -35,7 +35,7 @@ app.post('/publish', (req, res) => {
   if (!authorization?.startsWith('Bearer ')) return res.status(401).json({ error: 'Bearer token required' });
   if (rateLimitOnce) {
     rateLimitOnce = false;
-    res.set('Retry-After', '1');
+    res.set('Retry-After', '30');
     return res.status(429).json({ error: 'rate limited' });
   }
   if (failOnce) {
