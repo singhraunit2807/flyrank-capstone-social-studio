@@ -13,9 +13,13 @@ app.get('/health', (_req, res) => res.json({ ok: true, service: 'social-media-st
 app.get('/api/campaigns', (_req, res) => res.json(listCampaigns()));
 
 app.post('/api/campaigns', (req, res) => {
-  const { title, body, url, sourceImage } = req.body ?? {};
-  if (!title || !body || !url) return res.status(400).json({ error: 'title, body and url are required' });
-  return res.status(201).json(createCampaign({ title, body, url, sourceImage }));
+  const { title, body, url = '', sourceImage, platforms } = req.body ?? {};
+  if (!title || !body) return res.status(400).json({ error: 'title and body are required' });
+  try {
+    return res.status(201).json(createCampaign({ title, body, url, sourceImage, platforms }));
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
 });
 
 app.get('/api/campaigns/:id', (req, res) => {
@@ -30,34 +34,24 @@ app.post('/api/campaigns/:id/publish', async (req, res, next) => {
     if (!campaign) return res.status(404).json({ error: 'campaign not found' });
     const accessToken = req.body?.accessToken || DEFAULT_FAKE_ACCESS_TOKEN;
     const results = [];
-
     for (const post of campaign.posts) {
-      if (post.status === 'published' && post.externalId) {
-        results.push(post);
-        continue;
-      }
+      if (post.status === 'published' && post.externalId) { results.push(post); continue; }
       updatePost(post.id, { status: 'publishing' });
-      const result = await withRetry(
-        () => publishToFakePlatform({
-          platform: post.platform,
-          caption: post.caption,
-          imageUrl: post.image.sourceImage,
-          idempotencyKey: post.idempotencyKey,
-          accessToken,
-          clientPostId: post.id
-        }),
-        { maxRetries: 3 }
-      );
-      const updated = updatePost(post.id, {
+      const result = await withRetry(() => publishToFakePlatform({
+        platform: post.platform,
+        caption: post.caption,
+        imageUrl: post.image.sourceImage,
+        idempotencyKey: post.idempotencyKey,
+        accessToken,
+        clientPostId: post.id
+      }), { maxRetries: 3 });
+      results.push(updatePost(post.id, {
         status: result.status === 'published' ? 'published' : 'publishing',
         externalId: result.id || result.externalId || null
-      });
-      results.push(updated);
+      }));
     }
     return res.json({ campaignId: campaign.id, posts: results });
-  } catch (error) {
-    return next(error);
-  }
+  } catch (error) { return next(error); }
 });
 
 app.get('/api/fake-platform/posts', async (_req, res, next) => {
@@ -66,16 +60,9 @@ app.get('/api/fake-platform/posts', async (_req, res, next) => {
 
 app.post('/webhook/social-delivery', (req, res) => {
   const signature = req.header('X-Webhook-Signature');
-  if (!verifyWebhookSignature(req.body, signature, WEBHOOK_SECRET)) {
-    return res.status(400).json({ error: 'invalid webhook signature' });
-  }
+  if (!verifyWebhookSignature(req.body, signature, WEBHOOK_SECRET)) return res.status(400).json({ error: 'invalid webhook signature' });
   const { postId, clientPostId, externalId, status } = req.body;
-  const internalPostId = clientPostId || postId;
-  const post = internalPostId ? updatePost(internalPostId, {
-    status,
-    externalId: externalId || postId || null,
-    deliveredAt: new Date().toISOString()
-  }) : null;
+  const post = updatePost(clientPostId || postId, { status, externalId: externalId || postId || null, deliveredAt: new Date().toISOString() });
   if (!post) return res.status(404).json({ error: 'post not found' });
   return res.json({ ok: true, post });
 });
