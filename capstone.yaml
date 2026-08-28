@@ -1,6 +1,6 @@
 run: docker compose up
 seed: npm run generate:images
- test: npm test
+test: npm test
 base_url: http://localhost:3000
 endpoints:
   - GET /health
