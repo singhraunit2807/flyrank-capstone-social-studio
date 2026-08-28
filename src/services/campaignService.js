@@ -3,6 +3,13 @@ import { buildCampaignContent } from './contentService.js';
 import { buildAllVariants } from '../imageVariants.js';
 
 const campaigns = new Map();
+const VALID_STATUSES = new Set(['queued', 'publishing', 'published', 'failed']);
+const ALLOWED_TRANSITIONS = {
+  queued: new Set(['queued', 'publishing', 'failed']),
+  publishing: new Set(['publishing', 'published', 'failed']),
+  published: new Set(['published']),
+  failed: new Set(['queued', 'publishing', 'failed', 'published'])
+};
 
 export function createCampaign(input) {
   const id = randomUUID();
@@ -19,16 +26,11 @@ export function createCampaign(input) {
     status: 'queued',
     idempotencyKey: `${id}:${item.platform}`,
     externalId: null,
-    publishedAt: null
+    publishedAt: null,
+    deliveredAt: null,
+    error: null
   }));
-
-  const campaign = {
-    id,
-    source: input,
-    status: 'queued',
-    posts,
-    createdAt: new Date().toISOString()
-  };
+  const campaign = { id, source: input, status: 'queued', posts, createdAt: new Date().toISOString() };
   campaigns.set(id, campaign);
   return campaign;
 }
@@ -39,12 +41,16 @@ export function listCampaigns() { return [...campaigns.values()]; }
 export function updatePost(id, patch) {
   for (const campaign of campaigns.values()) {
     const post = campaign.posts.find((item) => item.id === id);
-    if (post) {
-      Object.assign(post, patch);
-      if (campaign.posts.every((item) => item.status === 'published')) campaign.status = 'published';
-      else if (campaign.posts.some((item) => item.status === 'publishing')) campaign.status = 'publishing';
-      return post;
+    if (!post) continue;
+    if (patch.status && (!VALID_STATUSES.has(patch.status) || !ALLOWED_TRANSITIONS[post.status]?.has(patch.status))) {
+      throw new Error(`invalid post status transition: ${post.status} -> ${patch.status}`);
     }
+    Object.assign(post, patch);
+    if (campaign.posts.every((item) => item.status === 'published')) campaign.status = 'published';
+    else if (campaign.posts.some((item) => item.status === 'failed')) campaign.status = 'failed';
+    else if (campaign.posts.some((item) => item.status === 'publishing')) campaign.status = 'publishing';
+    else campaign.status = 'queued';
+    return post;
   }
   return null;
 }
