@@ -7,12 +7,14 @@ const campaigns = new Map();
 export function createCampaign(input) {
   const id = randomUUID();
   const sourceImage = input.sourceImage || 'placeholder://blog-image';
-  const content = buildCampaignContent(input);
+  const platforms = input.platforms?.length ? input.platforms : ['instagram', 'x'];
+  const content = buildCampaignContent(input, platforms);
   const variants = buildAllVariants(sourceImage);
   const posts = content.map((item) => ({
     id: randomUUID(),
     platform: item.platform,
     caption: item.caption,
+    promptContext: item.promptContext,
     image: variants.find((variant) => variant.platform === item.platform),
     status: 'queued',
     idempotencyKey: `${id}:${item.platform}`,
@@ -31,13 +33,8 @@ export function createCampaign(input) {
   return campaign;
 }
 
-export function getCampaign(id) {
-  return campaigns.get(id);
-}
-
-export function listCampaigns() {
-  return [...campaigns.values()];
-}
+export function getCampaign(id) { return campaigns.get(id); }
+export function listCampaigns() { return [...campaigns.values()]; }
 
 export function updatePost(id, patch) {
   for (const campaign of campaigns.values()) {
@@ -45,6 +42,7 @@ export function updatePost(id, patch) {
     if (post) {
       Object.assign(post, patch);
       if (campaign.posts.every((item) => item.status === 'published')) campaign.status = 'published';
+      else if (campaign.posts.some((item) => item.status === 'publishing')) campaign.status = 'publishing';
       return post;
     }
   }
