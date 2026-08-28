@@ -1,6 +1,6 @@
-const { PLATFORM_SPECS } = require('./platforms');
+import { PLATFORM_SPECS } from './platforms.js';
 
-function buildVariantSpec(platform, sourceImage) {
+export function buildVariantSpec(platform, sourceImage) {
   const spec = PLATFORM_SPECS[platform];
   if (!spec) throw new Error(`Unsupported platform: ${platform}`);
   return {
@@ -10,12 +10,10 @@ function buildVariantSpec(platform, sourceImage) {
     height: spec.height,
     aspectRatio: spec.aspectRatio,
     fit: 'cover',
-    safeZone: 'center',
+    safeZone: 'center'
   };
 }
 
-function buildAllVariants(sourceImage) {
+export function buildAllVariants(sourceImage) {
   return Object.keys(PLATFORM_SPECS).map((platform) => buildVariantSpec(platform, sourceImage));
 }
-
-module.exports = { buildVariantSpec, buildAllVariants };
