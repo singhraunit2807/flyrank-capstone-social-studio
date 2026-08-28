@@ -1,0 +1,8 @@
+run: npm start
+seed: echo "Seed data will be added with the persistence layer"
+test: npm test
+base_url: http://localhost:3000
+endpoints:
+  - GET /health
+  - POST /api/campaigns
+  - GET /api/campaigns/:id
