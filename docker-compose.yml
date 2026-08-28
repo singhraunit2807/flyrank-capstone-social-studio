@@ -12,8 +12,23 @@ services:
       FAKE_PLATFORM_URL: http://fake-platform:4000
       WEBHOOK_SECRET: dev-webhook-secret
       TOKEN_ENCRYPTION_KEY: dev-encryption-key
+      STORE_FILE: /app/data/campaigns.json
     depends_on:
       - fake-platform
+  worker:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: sh -c "npm install && npm run worker"
+    environment:
+      PORT: 3000
+      FAKE_PLATFORM_URL: http://app:3000
+      WEBHOOK_SECRET: dev-webhook-secret
+      TOKEN_ENCRYPTION_KEY: dev-encryption-key
+      STORE_FILE: /app/data/campaigns.json
+    depends_on:
+      - app
   fake-platform:
     image: node:22-alpine
     working_dir: /app
@@ -22,3 +37,6 @@ services:
     command: sh -c "npm install && npm start"
     ports:
       - "4000:4000"
+    environment:
+      WEBHOOK_SECRET: dev-webhook-secret
+      CALLBACK_URL: http://app:3000/webhook/social-delivery
