@@ -18,7 +18,6 @@ function sign(payload) {
 
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'fake-social-platform' }));
 
-// Minimal OAuth simulation used by local integration tests.
 app.post('/oauth/token', (req, res) => {
   const { platform = 'unknown', code = 'demo-code' } = req.body || {};
   const accessToken = `fake-token-${crypto.randomUUID()}`;
@@ -26,18 +25,10 @@ app.post('/oauth/token', (req, res) => {
   res.json({ access_token: accessToken, token_type: 'Bearer', expires_in: 3600 });
 });
 
-// Test controls: these deliberately exercise the failure modes required by the capstone.
-app.post('/admin/rate-limit-once', (_req, res) => {
-  rateLimitOnce = true;
-  res.json({ enabled: true });
-});
-
-app.post('/admin/fail-once', (_req, res) => {
-  failOnce = true;
-  res.json({ enabled: true });
-});
-
+app.post('/admin/rate-limit-once', (_req, res) => { rateLimitOnce = true; res.json({ enabled: true }); });
+app.post('/admin/fail-once', (_req, res) => { failOnce = true; res.json({ enabled: true }); });
 app.get('/admin/posts', (_req, res) => res.json([...posts.values()]));
+app.get('/posts', (_req, res) => res.json([...posts.values()]));
 
 app.post('/publish', (req, res) => {
   const key = req.header('Idempotency-Key');
@@ -50,12 +41,10 @@ app.post('/publish', (req, res) => {
     res.set('Retry-After', '1');
     return res.status(429).json({ error: 'rate limited' });
   }
-
   if (failOnce) {
     failOnce = false;
     return res.status(503).json({ error: 'simulated transient failure' });
   }
-
   if (posts.has(key)) return res.status(200).json(posts.get(key));
 
   const post = {
@@ -69,15 +58,14 @@ app.post('/publish', (req, res) => {
 
   const webhookPayload = JSON.stringify({
     event: 'delivery',
-    post_id: post.id,
+    postId: post.id,
     platform: post.platform,
     status: 'published',
-    idempotency_key: key
+    idempotencyKey: key
   });
 
-  // Delivery is asynchronous, matching the trust boundary in the capstone.
   setTimeout(() => {
-    fetch(process.env.CALLBACK_URL || 'http://host.docker.internal:3000/webhook/social-delivery', {
+    fetch(process.env.CALLBACK_URL || 'http://localhost:3000/webhook/social-delivery', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
