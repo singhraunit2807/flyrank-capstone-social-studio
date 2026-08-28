@@ -2,11 +2,13 @@
 
 Backend capstone project for turning one blog post into a platform-aware social campaign.
 
-## Current status
+## Implementation status
 
-This repository contains the initial backend foundation. The implementation will be completed incrementally around the current Social Media Studio capstone brief.
+Core backend modules, platform-aware content generation, image variant specifications, adapter-based publishing, idempotency keys, retry/backoff handling, durable scheduling foundation, encrypted token utilities, signed webhooks, acceptance tests, and CI are implemented.
 
-## Planned core flow
+End-to-end verification against the FlyRank-provided fake social platform must be run in the supplied starter environment before claiming the corresponding acceptance probe as passed.
+
+## Core flow
 
 ```text
 Blog Post
@@ -15,41 +17,57 @@ Blog Post
    |
    +--> Image Variant Pipeline -----> platform-specific images
    |
-   +--> Campaign Scheduler ----------> Publishing Worker
+   +--> Durable Scheduler ----------> Publishing Worker
                                            |
                                            v
                                    SocialPublisher
                                     /           \
-                             Platform A      Platform B
+                             Instagram          X
+                                    \           /
+                                     Fake Platform
+                                           |
+                                           v
+                                   Signed Delivery Webhook
 ```
 
 ## Architecture principles
 
-- Keep HTTP, business logic, and platform adapters separated.
-- Use adapters so platform-specific publishing does not leak into business logic.
-- Make publish operations idempotent.
-- Handle rate limits with `Retry-After` and safe backoff.
-- Store secrets only through environment/configuration and never log credentials.
-- Treat delivery callbacks/webhooks as untrusted input and verify signatures before changing status.
-- Keep tests focused on failure cases as well as the happy path.
+- Keep HTTP, business logic, scheduling, and platform adapters separated.
+- Use `SocialPublisher` adapters so platform-specific publishing does not leak into business logic.
+- Use stable idempotency keys per campaign/platform publish operation.
+- Honor `Retry-After` for rate limits and use exponential backoff for transient failures.
+- Encrypt stored credentials and never log raw tokens.
+- Treat delivery callbacks as untrusted input and verify signatures before changing status.
+- Test failure paths as well as the happy path.
 
 ## Local setup
 
+Requirements: Node.js 20+.
+
 ```bash
 npm install
+cp .env.example .env
 npm test
 npm start
 ```
 
 The API starts on `http://localhost:3000` by default.
 
-Health check:
+### Useful commands
+
+```bash
+npm test
+npm run lint
+npm run generate:images
+```
+
+### Health check
 
 ```bash
 curl http://localhost:3000/health
 ```
 
-Create a campaign:
+### Create a campaign
 
 ```bash
 curl -X POST http://localhost:3000/api/campaigns \
@@ -57,18 +75,20 @@ curl -X POST http://localhost:3000/api/campaigns \
   -d '{"title":"Example post","body":"Example body","url":"https://example.com"}'
 ```
 
-## Important scope note
+### Publish a campaign
 
-The repository is being built against the current Social Media Studio assignment shown in the capstone portal. The portal states that the current version is the applicable brief when starting now. Platform-specific implementation details will be added from that current brief rather than assuming requirements from an older version.
+```bash
+curl -X POST http://localhost:3000/api/campaigns/CAMPAIGN_ID/publish \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
 
-## Required submission documentation
+## Acceptance coverage
 
-- `README.md` — system overview, architecture, setup, and limitations.
-- `capstone.yaml` — run/test/endpoint manifest.
-- `EVIDENCE.md` — proof for completed acceptance requirements.
-- `BUILDLOG.md` — honest record of AI assistance, mistakes, and changes.
-- `.env.example` — safe configuration template.
+The automated suite covers platform image dimensions/specifications, platform-specific captions, adapter separation, unsupported platforms, idempotency behavior, `429 Retry-After`, transient retries/backoff, token encryption, and signed webhook verification.
+
+The CI workflow runs syntax checks and the full Node test suite on pushes and pull requests to `main`.
 
 ## Security
 
-Never commit `.env`, API keys, OAuth tokens, passwords, or other secrets.
+Never commit `.env`, API keys, OAuth tokens, passwords, or other secrets. Use `.env.example` only as a template.
