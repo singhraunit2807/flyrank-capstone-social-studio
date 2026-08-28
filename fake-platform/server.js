@@ -17,14 +17,12 @@ function sign(payload) {
 }
 
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'fake-social-platform' }));
-
 app.post('/oauth/token', (req, res) => {
   const { platform = 'unknown', code = 'demo-code' } = req.body || {};
   const accessToken = `fake-token-${crypto.randomUUID()}`;
   tokens.set(accessToken, { platform, code });
   res.json({ access_token: accessToken, token_type: 'Bearer', expires_in: 3600 });
 });
-
 app.post('/admin/rate-limit-once', (_req, res) => { rateLimitOnce = true; res.json({ enabled: true }); });
 app.post('/admin/fail-once', (_req, res) => { failOnce = true; res.json({ enabled: true }); });
 app.get('/admin/posts', (_req, res) => res.json([...posts.values()]));
@@ -35,7 +33,6 @@ app.post('/publish', (req, res) => {
   const authorization = req.header('Authorization');
   if (!key) return res.status(400).json({ error: 'Idempotency-Key required' });
   if (!authorization?.startsWith('Bearer ')) return res.status(401).json({ error: 'Bearer token required' });
-
   if (rateLimitOnce) {
     rateLimitOnce = false;
     res.set('Retry-After', '1');
@@ -49,7 +46,10 @@ app.post('/publish', (req, res) => {
 
   const post = {
     id: `fake-${nextId++}`,
+    clientPostId: req.body.clientPostId || null,
     platform: req.body.platform,
+    caption: req.body.caption || '',
+    imageUrl: req.body.imageUrl || null,
     status: 'queued',
     idempotency_key: key,
     created_at: new Date().toISOString()
@@ -59,18 +59,17 @@ app.post('/publish', (req, res) => {
   const webhookPayload = JSON.stringify({
     event: 'delivery',
     postId: post.id,
+    clientPostId: post.clientPostId,
     platform: post.platform,
     status: 'published',
-    idempotencyKey: key
+    idempotencyKey: key,
+    externalId: post.id
   });
 
   setTimeout(() => {
     fetch(process.env.CALLBACK_URL || 'http://localhost:3000/webhook/social-delivery', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Webhook-Signature': sign(webhookPayload)
-      },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Signature': sign(webhookPayload) },
       body: webhookPayload
     }).catch(() => {});
   }, 25);
