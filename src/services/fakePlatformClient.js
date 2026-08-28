@@ -10,7 +10,7 @@ export class FakePlatformError extends Error {
   }
 }
 
-export async function publishToFakePlatform({ platform, caption, imageUrl, idempotencyKey, accessToken }) {
+export async function publishToFakePlatform({ platform, caption, imageUrl, idempotencyKey, accessToken, clientPostId }) {
   const response = await fetch(`${FAKE_PLATFORM_URL}/publish`, {
     method: 'POST',
     headers: {
@@ -18,7 +18,7 @@ export async function publishToFakePlatform({ platform, caption, imageUrl, idemp
       'Authorization': `Bearer ${accessToken}`,
       'Idempotency-Key': idempotencyKey
     },
-    body: JSON.stringify({ platform, caption, imageUrl })
+    body: JSON.stringify({ platform, caption, imageUrl, clientPostId })
   });
 
   const text = await response.text();
@@ -26,14 +26,12 @@ export async function publishToFakePlatform({ platform, caption, imageUrl, idemp
   try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
 
   if (!response.ok && response.status !== 202) {
-    const retryAfter = response.headers.get('Retry-After');
     throw new FakePlatformError(data.error || `Fake platform returned ${response.status}`, {
       status: response.status,
-      retryAfter,
+      retryAfter: response.headers.get('Retry-After'),
       response: data
     });
   }
-
   return data;
 }
 
