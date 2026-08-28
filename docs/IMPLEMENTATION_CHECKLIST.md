@@ -1,29 +1,31 @@
 # Implementation Checklist
 
-## Core
+## Implemented in repository
 - [x] Public dedicated repository
 - [x] README / capstone manifest / evidence / build log
 - [x] Environment example and gitignore
 - [x] Platform specifications
 - [x] Caption composition from shared + platform fragments
 - [x] SocialPublisher interface + Instagram/X adapters
-- [x] Idempotency guard
-- [x] 429 Retry-After backoff utility
+- [x] Sharp image-generation utility
+- [x] Idempotency key and fake-platform guard
+- [x] `429 Retry-After` parsing and exponential backoff utility
 - [x] AES-256-GCM token encryption with random IV
 - [x] Signed webhook verification
-- [x] Scheduler foundation
-- [x] Database schema
-- [x] Local fake-platform foundation
+- [x] Durable scheduler primitives and stale-job recovery
 - [x] Architecture diagram
-- [x] Automated tests for core reliability/security behavior
+- [x] Automated unit/acceptance test coverage
+- [x] GitHub Actions CI workflow
 
-## Before submission
-- [ ] Connect the exact FlyRank-provided fake server at `starters/challenge-5-social/`
-- [ ] Implement real image file generation with Sharp and dimension assertions
-- [ ] Persist scheduler jobs and worker state across process restarts
-- [ ] Wire the HTTP routes to persistence and adapters end-to-end
-- [ ] Capture real command/test output in EVIDENCE.md
-- [ ] Run all acceptance probes from the brief
-- [ ] Rehearse the six-minute demo
+## Required before final submission
+- [ ] Run against the exact FlyRank-provided `starters/challenge-5-social/` server.
+- [ ] Wire campaign persistence fully to the durable store and prove restart recovery.
+- [ ] Wire the scheduled worker to real campaign publishing and verify crash-resume with zero duplicates.
+- [ ] Run the actual image-generation command and inspect the resulting files.
+- [ ] Capture real `npm test`, API, scheduler, webhook, and security outputs in `EVIDENCE.md`.
+- [ ] Run all six acceptance probes from the brief.
+- [ ] Rehearse the final demo.
 
-The unchecked items are intentionally not claimed as complete until the provided FlyRank starter server and runtime environment are available and tested.
+## Audit rule
+
+Unchecked items are intentionally not presented as complete. The capstone requires real evidence for the acceptance probes, and the supplied FlyRank starter server is not currently available in this conversation.
